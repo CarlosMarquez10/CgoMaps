@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CGO Maps v3.0</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: sans-serif;
+        overflow: hidden;
+      }
+
+      #map {
+        height: 100%;
+        width: 100%;
+      }
+
+      /* Menú inferior */
+      .bottom-menu {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 70px;
+        background: rgba(255, 140, 0, 0.1);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        border-top: 1px solid rgba(255, 140, 0, 0.2);
+      }
+
+      /* Botón de toggle */
+      .toggle-btn {
+        position: absolute;
+        left: 20px;
+        width: 50px;
+        height: 50px;
+        background-color: #ff4500;
+        border: none;
+        border-radius: 50%;
+        font-size: 24px;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        z-index: 1001;
+      }
+
+      .toggle-btn:hover {
+        background-color: #e63e00;
+        transform: scale(1.05);
+      }
+
+      /* Contenedor de botones */
+      .menu-buttons {
+        position: absolute;
+        left: 90px;
+        right: 20px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        opacity: 0;
+        transform: translateX(-100px);
+        transition: all 0.5s ease;
+        pointer-events: none;
+      }
+
+      .menu-buttons.show {
+        opacity: 1;
+        transform: translateX(0);
+        pointer-events: all;
+      }
+
+      /* Botones individuales */
+      .menu-btn {
+        padding: 12px 20px;
+        background-color: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 100px;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      }
+
+      .menu-btn:hover {
+        background-color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+      }
+
+      .menu-btn.active {
+        background-color: #ff4500;
+        color: white;
+      }
+
+      /* Dropdown para mapas */
+      .maps-dropdown {
+        position: absolute;
+        bottom: 80px;
+        left: 20px;
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        display: none;
+        z-index: 1002;
+        min-width: 200px;
+        overflow: hidden;
+      }
+
+      .maps-dropdown.show {
+        display: block;
+        animation: slideUp 0.3s ease;
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .map-option {
+        padding: 15px 20px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+      }
+
+      .map-option:last-child {
+        border-bottom: none;
+      }
+
+      .map-option:hover {
+        background-color: #f8f9fa;
+      }
+
+      .map-option.active {
+        background-color: #fff3e0;
+        color: #ff4500;
+      }
+
+      /* Modal para medición */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 2000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .modal-overlay.show {
+        display: flex;
+        animation: fadeIn 0.3s ease;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      .modal-content {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        width: 90%;
+        max-width: 500px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.3s ease;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f0f0f0;
+      }
+
+      .modal-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #333;
+        margin: 0;
+      }
+
+      .close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #999;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+      }
+
+      .close-btn:hover {
+        background-color: #f0f0f0;
+        color: #333;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #333;
+      }
+
+      .users-textarea {
+        width: 100%;
+        height: 120px;
+        padding: 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 14px;
+        resize: vertical;
+        transition: border-color 0.2s ease;
+      }
+
+      .users-textarea:focus {
+        outline: none;
+        border-color: #ff4500;
+      }
+
+      .users-textarea::placeholder {
+        color: #999;
+      }
+
+      .color-section {
+        margin-bottom: 25px;
+      }
+
+      .color-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+        margin-bottom: 15px;
+      }
+
+      .color-option {
+        width: 40px;
+        height: 40px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+      }
+
+      .color-option:hover {
+        transform: scale(1.1);
+        border-color: #999;
+      }
+
+      .color-option.selected {
+        border-color: #ff4500;
+        border-width: 3px;
+        transform: scale(1.1);
+      }
+
+      .color-option.selected::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+      }
+
+      .custom-color-section {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .custom-color-input {
+        width: 60px;
+        height: 40px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        background: none;
+      }
+
+      .custom-color-label {
+        font-size: 14px;
+        color: #666;
+      }
+
+      .search-btn {
+        width: 100%;
+        padding: 15px;
+        background-color: #ff4500;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        transition: all 0.2s ease;
+      }
+
+      .search-btn:hover {
+        background-color: #e63e00;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(230, 62, 0, 0.3);
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .menu-btn {
+          min-width: 80px;
+          padding: 10px 15px;
+          font-size: 12px;
+        }
+        
+        .toggle-btn {
+          width: 45px;
+          height: 45px;
+          font-size: 20px;
+        }
+        
+        .menu-buttons {
+          left: 75px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Mapa -->
+    <div id="map"></div>
+
+    <!-- Menú inferior -->
+    <div class="bottom-menu">
+      <button class="toggle-btn" id="toggleMenuBtn">☰</button>
+      
+      <div class="menu-buttons" id="menuButtons">
+        <button class="menu-btn" id="mapsBtn">
+          🗺️ Mapas
+        </button>
+        <button class="menu-btn" onclick="showFeature('layers')">
+          📋 Crear
+        </button>
+        <button class="menu-btn" onclick="showFeature('tools')">
+          🔧 Herramientas
+        </button>
+        <button class="menu-btn" onclick="showMeasureModal()">
+          📏 Grafícar
+        </button>
+        <button class="menu-btn" onclick="showFeature('search')">
+          🔍 Buscar
+        </button>
+        <button class="menu-btn" onclick="showFeature('export')">
+          💾 Exportar
+        </button>
+        <button class="menu-btn" onclick="showFeature('settings')">
+          ⚙️ Configuración
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal de medición -->
+    <div class="modal-overlay" id="measureModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Inserte los usuarios a buscar</h2>
+          <button class="close-btn" onclick="closeMeasureModal()">✕</button>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Lista de usuarios:</label>
+          <textarea 
+            class="users-textarea" 
+            id="usersInput"
+            placeholder="Pegue aquí la lista de usuarios (uno por línea)&#10;Ejemplo:&#10;Usuario1&#10;Usuario2&#10;Usuario3"
+          ></textarea>
+        </div>
+
+        <div class="form-group color-section">
+          <label class="form-label">Seleccione un color:</label>
+          <div class="color-grid" id="colorGrid">
+            <div class="color-option selected" style="background-color: #ff4500;" data-color="#ff4500"></div>
+            <div class="color-option" style="background-color: #4285f4;" data-color="#4285f4"></div>
+            <div class="color-option" style="background-color: #34a853;" data-color="#34a853"></div>
+            <div class="color-option" style="background-color: #ea4335;" data-color="#ea4335"></div>
+            <div class="color-option" style="background-color: #9c27b0;" data-color="#9c27b0"></div>
+            <div class="color-option" style="background-color: #ff9800;" data-color="#ff9800"></div>
+            <div class="color-option" style="background-color: #607d8b;" data-color="#607d8b"></div>
+            <div class="color-option" style="background-color: #795548;" data-color="#795548"></div>
+            <div class="color-option" style="background-color: #e91e63;" data-color="#e91e63"></div>
+            <div class="color-option" style="background-color: #00bcd4;" data-color="#00bcd4"></div>
+          </div>
+          
+          <div class="custom-color-section">
+            <input type="color" class="custom-color-input" id="customColorPicker" value="#ff4500">
+            <span class="custom-color-label">Personalizar color</span>
+          </div>
+        </div>
+
+        <button class="search-btn" onclick="searchUsers()">
+          🔍 Buscar usuarios
+        </button>
+      </div>
+    </div>
+
+    <!-- Dropdown de mapas -->
+    <div class="maps-dropdown" id="mapsDropdown">
+      <div class="map-option active" onclick="setBaseMap('osm')">
+        🗺️ OpenStreetMap
+      </div>
+      <div class="map-option" onclick="setBaseMap('esri')">
+        🛰️ Esri Satélite
+      </div>
+      <div class="map-option" onclick="setBaseMap('topo')">
+        🏔️ Topográfico
+      </div>
+      <div class="map-option" onclick="setBaseMap('dark')">
+        🌙 Modo Oscuro
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+      // Inicializar mapa
+      const map = L.map("map").setView([6.2442, -75.5812], 13);
+
+      // Definir capas de mapas
+      const layers = {
+        osm: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenStreetMap contributors",
+        }),
+        esri: L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          {
+            attribution: "&copy; Esri",
+          }
+        ),
+        topo: L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+          {
+            attribution: "&copy; Esri",
+          }
+        ),
+        dark: L.tileLayer(
+          "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+          {
+            attribution: "&copy; CartoDB",
+          }
+        )
+      };
+
+      // Carga por defecto
+      let currentLayer = 'osm';
+      layers.osm.addTo(map);
+
+      // Función para cambiar mapa base
+      function setBaseMap(type) {
+        // Elimina todas las capas
+        map.eachLayer((layer) => map.removeLayer(layer));
+        // Agrega la seleccionada
+        layers[type].addTo(map);
+        currentLayer = type;
+        
+        // Actualizar indicador visual
+        document.querySelectorAll('.map-option').forEach(option => {
+          option.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        // Cerrar dropdown
+        document.getElementById('mapsDropdown').classList.remove('show');
+      }
+
+      // Toggle del menú principal
+      const toggleMenuBtn = document.getElementById("toggleMenuBtn");
+      const menuButtons = document.getElementById("menuButtons");
+      let menuOpen = false;
+
+      toggleMenuBtn.addEventListener("click", () => {
+        menuOpen = !menuOpen;
+        if (menuOpen) {
+          menuButtons.classList.add("show");
+          toggleMenuBtn.textContent = "❌";
+        } else {
+          menuButtons.classList.remove("show");
+          toggleMenuBtn.textContent = "☰";
+          // Cerrar dropdown si está abierto
+          document.getElementById('mapsDropdown').classList.remove('show');
+        }
+      });
+
+      // Manejo del dropdown de mapas
+      const mapsBtn = document.getElementById("mapsBtn");
+      const mapsDropdown = document.getElementById("mapsDropdown");
+
+      mapsBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        mapsDropdown.classList.toggle("show");
+      });
+
+      // Cerrar dropdown al hacer click fuera
+      document.addEventListener("click", (e) => {
+        if (!mapsDropdown.contains(e.target) && e.target !== mapsBtn) {
+          mapsDropdown.classList.remove("show");
+        }
+      });
+
+      // Funciones placeholder para otros botones
+      function showFeature(feature) {
+        alert(`Funcionalidad "${feature}" será implementada próximamente`);
+      }
+
+      // Funciones del modal de medición
+      let selectedColor = '#ff4500';
+
+      function showMeasureModal() {
+        document.getElementById('measureModal').classList.add('show');
+      }
+
+      function closeMeasureModal() {
+        document.getElementById('measureModal').classList.remove('show');
+      }
+
+      // Manejo de selección de colores
+      document.addEventListener('DOMContentLoaded', function() {
+        const colorOptions = document.querySelectorAll('.color-option');
+        const customColorPicker = document.getElementById('customColorPicker');
+
+        colorOptions.forEach(option => {
+          option.addEventListener('click', function() {
+            // Remover selección anterior
+            colorOptions.forEach(opt => opt.classList.remove('selected'));
+            // Seleccionar nuevo color
+            this.classList.add('selected');
+            selectedColor = this.dataset.color;
+            customColorPicker.value = selectedColor;
+          });
+        });
+
+        // Color personalizado
+        customColorPicker.addEventListener('change', function() {
+          selectedColor = this.value;
+          // Remover selección de colores predefinidos
+          colorOptions.forEach(opt => opt.classList.remove('selected'));
+          
+          // Verificar si el color personalizado coincide con alguno predefinido
+          const matchingOption = Array.from(colorOptions).find(opt => 
+            opt.dataset.color.toLowerCase() === selectedColor.toLowerCase()
+          );
+          if (matchingOption) {
+            matchingOption.classList.add('selected');
+          }
+        });
+      });
+
+      function searchUsers() {
+        const usersText = document.getElementById('usersInput').value.trim();
+        
+        if (!usersText) {
+          alert('Por favor, ingrese la lista de usuarios');
+          return;
+        }
+
+        // Convertir texto en array de usuarios
+        const users = usersText.split('\n')
+          .map(user => user.trim())
+          .filter(user => user.length > 0);
+
+        if (users.length === 0) {
+          alert('No se encontraron usuarios válidos');
+          return;
+        }
+
+        // Aquí implementarás la lógica de búsqueda
+        console.log('Usuarios a buscar:', users);
+        console.log('Color seleccionado:', selectedColor);
+        
+        // Placeholder para la funcionalidad
+        alert(`Se buscarán ${users.length} usuarios con color ${selectedColor}`);
+        
+        // Cerrar modal
+        closeMeasureModal();
+      }
+
+      // Cerrar modal al hacer click fuera
+      document.getElementById('measureModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+          closeMeasureModal();
+        }
+      });
+
+      // Cerrar menú al hacer click en el mapa
+      map.on('click', () => {
+        if (menuOpen) {
+          menuButtons.classList.remove("show");
+          toggleMenuBtn.textContent = "☰";
+          menuOpen = false;
+          mapsDropdown.classList.remove("show");
+        }
+      });
+    </script>
+  </body>
+</html>
