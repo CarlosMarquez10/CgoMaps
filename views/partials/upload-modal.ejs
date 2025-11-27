@@ -1,0 +1,173 @@
+<!-- Modal de carga de Excel -->
+<div class="modal-overlay" id="uploadModal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Cargar archivo Excel</h2>
+            <button class="close-btn" onclick="closeUploadModal()">✕</button>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Seleccione el archivo (máx 200MB):</label>
+            <div class="file-upload-container">
+                <input type="file" id="excelFile" accept=".xlsx, .xls" class="file-input-hidden">
+                <button type="button" class="file-select-btn" onclick="openFilePicker()">
+                    <i data-lucide="file-plus"></i>
+                    <span>Seleccionar archivo</span>
+                </button>
+                <div class="file-name"><i data-lucide="file"></i><span id="fileNameDisplay">Ningún archivo seleccionado</span></div>
+                <button class="search-btn" onclick="uploadExcel()" id="uploadBtn">
+                    📤 Subir y Procesar
+                </button>
+            </div>
+        </div>
+
+        <div id="uploadStatus" class="status-message"></div>
+
+        <div class="preview-section" id="previewSection" style="display: none;">
+            <h3 class="preview-title">Archivos Guardados</h3>
+            <div class="table-container">
+                <table id="previewTable" class="preview-table">
+                    <!-- Datos se llenarán dinámicamente -->
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal preparar datos -->
+<div class="modal-overlay" id="prepareModal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Preparar Datos a Graficar</h2>
+            <button class="close-btn" onclick="closePrepareModal()">✕</button>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Archivo seleccionado:</label>
+            <div id="prepareFileName" class="status-message"></div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Seleccione la columna:</label>
+            <select id="columnsSelect" class="select-input">
+                <option value="" disabled selected>Cargando columnas...</option>
+            </select>
+        </div>
+
+        <div id="prepareStatus" class="status-message" style="display:none;"></div>
+        <div class="preview-section" id="prepareSummarySection" style="display:none;">
+            <div class="summary-header">
+                <h3 class="preview-title">Resumen de valores únicos</h3>
+                <div>
+                <button type="button" class="save-btn" onclick="saveColoredExcel()">
+                    <i data-lucide="save"></i>
+                    <span>Guardar</span>
+                </button>
+                <button type="button" class="graph-btn" onclick="openDataModal()">
+                    <i data-lucide="map-pin"></i>
+                    <span>Graficar</span>
+                </button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="columnSummaryTable" class="preview-table"></table>
+            </div>
+        </div>
+        </div>
+    </div>
+
+<!-- Modal selector de color personalizado -->
+<div class="modal-overlay" id="colorPickerModal">
+    <div class="modal-content" style="max-width: 420px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Seleccionar color</h2>
+            <button class="close-btn" onclick="closeColorPickerModal()">✕</button>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Color personalizado:</label>
+            <input type="color" id="colorPickerInput" class="custom-color-input" value="#000000">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Colores predefinidos:</label>
+            <div class="color-modal-grid" id="colorPresetGrid">
+                <div class="preset-color" data-color="#000000" style="background-color:#000000"></div>
+                <div class="preset-color" data-color="#FF4500" style="background-color:#FF4500"></div>
+                <div class="preset-color" data-color="#4285F4" style="background-color:#4285F4"></div>
+                <div class="preset-color" data-color="#34A853" style="background-color:#34A853"></div>
+                <div class="preset-color" data-color="#EA4335" style="background-color:#EA4335"></div>
+                <div class="preset-color" data-color="#9C27B0" style="background-color:#9C27B0"></div>
+                <div class="preset-color" data-color="#FF9800" style="background-color:#FF9800"></div>
+                <div class="preset-color" data-color="#607D8B" style="background-color:#607D8B"></div>
+                <div class="preset-color" data-color="#795548" style="background-color:#795548"></div>
+                <div class="preset-color" data-color="#00BCD4" style="background-color:#00BCD4"></div>
+                <div class="preset-color" data-color="#8BC34A" style="background-color:#8BC34A"></div>
+                <div class="preset-color" data-color="#3F51B5" style="background-color:#3F51B5"></div>
+                <div class="preset-color" data-color="#FFC107" style="background-color:#FFC107"></div>
+                <div class="preset-color" data-color="#673AB7" style="background-color:#673AB7"></div>
+                <div class="preset-color" data-color="#009688" style="background-color:#009688"></div>
+            </div>
+        </div>
+
+        <button class="search-btn" onclick="applySummaryColor()">
+            Aplicar
+        </button>
+    </div>
+</div>
+
+<!-- Modal proyectos (data) -->
+<div class="modal-overlay" id="dataModal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Proyectos guardados</h2>
+            <button class="close-btn" onclick="closeDataModal()">✕</button>
+        </div>
+
+        <div id="projectsStatus" class="status-message" style="display:none;"></div>
+        <div class="preview-section">
+            <div class="table-container">
+                <table id="projectsTable" class="preview-table"></table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Taller / Creación de Correria -->
+<div class="modal-overlay" id="workshopModal">
+    <div class="modal-content" style="max-width: 640px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Creación de Correria</h3>
+            <div>
+                <button class="minimize-btn" onclick="minimizeWorkshopModal()"><i data-lucide="minimize-2"></i></button>
+                <button class="restore-btn" onclick="maximizeWorkshopModal()" style="display:none"><i data-lucide="maximize-2"></i></button>
+                <button class="close-btn" onclick="closeWorkshopModal()">✕</button>
+            </div>
+        </div>
+        <div class="preview-section">
+            <div class="workshop-actions" id="workshopActions">
+                <button type="button" class="workshop-btn manual-btn" onclick="openManualCorreria()">
+                    <i data-lucide="hand"></i>
+                    <span>Manual</span>
+                </button>
+                <button type="button" class="workshop-btn auto-btn" onclick="openAutoCorreria()">
+                    <i data-lucide="cpu"></i>
+                    <span>Automático</span>
+                </button>
+            </div>
+            <div id="manualCorreriaSection" class="manual-section" style="display:none;">
+                <div class="manual-form">
+                    <input type="text" id="correriaNameInput" class="select-input" placeholder="Nombre de correría" />
+                    <button type="button" class="save-btn" onclick="saveCorreriaName()">
+                        <i data-lucide="save"></i>
+                        <span>Guardar</span>
+                    </button>
+                </div>
+            </div>
+            <div id="correriaListContainer" class="correria-list">
+                <table id="correriaTable" class="preview-table"></table>
+            </div>
+            <div class="status-message">Próximamente...</div>
+        </div>
+    </div>
+    </div>

@@ -1,0 +1,35 @@
+<!-- Menú inferior -->
+<div class="bottom-menu">
+    <button class="toggle-btn" id="toggleMenuBtn">☰</button>
+
+    <div class="menu-buttons" id="menuButtons">
+        <button class="menu-btn" id="mapsBtn">
+            <i data-lucide="map"></i>
+            <span>Mapas</span>
+        </button>
+        <button class="menu-btn" onclick="showUploadModal()">
+            <i data-lucide="file-plus"></i>
+            <span>Crear</span>
+        </button>
+        <button class="menu-btn" onclick="openWorkshopModal()">
+            <i data-lucide="wrench"></i>
+            <span>Taller</span>
+        </button>
+        <button class="menu-btn" onclick="showMeasureModal()">
+            <i data-lucide="ruler"></i>
+            <span>Grafícar</span>
+        </button>
+        <button class="menu-btn" onclick="openDataModal()">
+            <i data-lucide="folder"></i>
+            <span>Proyectos</span>
+        </button>
+        <button class="menu-btn" onclick="showFeature('export')">
+            <i data-lucide="download"></i>
+            <span>Exportar</span>
+        </button>
+        <button class="menu-btn" onclick="showFeature('settings')">
+            <i data-lucide="settings"></i>
+            <span>Configuración</span>
+        </button>
+    </div>
+</div>

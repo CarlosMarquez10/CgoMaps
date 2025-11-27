@@ -1,0 +1,40 @@
+<!-- Modal de medición -->
+<div class="modal-overlay" id="measureModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Inserte los usuarios a buscar</h2>
+            <button class="close-btn" onclick="closeMeasureModal()">✕</button>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Lista de usuarios:</label>
+            <textarea class="users-textarea" id="usersInput"
+                placeholder="Pegue aquí la lista de usuarios (uno por línea)&#10;Ejemplo:&#10;Usuario1&#10;Usuario2&#10;Usuario3"></textarea>
+        </div>
+
+        <div class="form-group color-section">
+            <label class="form-label">Seleccione un color:</label>
+            <div class="color-grid" id="colorGrid">
+                <div class="color-option selected" style="background-color: #ff4500;" data-color="#ff4500"></div>
+                <div class="color-option" style="background-color: #4285f4;" data-color="#4285f4"></div>
+                <div class="color-option" style="background-color: #34a853;" data-color="#34a853"></div>
+                <div class="color-option" style="background-color: #ea4335;" data-color="#ea4335"></div>
+                <div class="color-option" style="background-color: #9c27b0;" data-color="#9c27b0"></div>
+                <div class="color-option" style="background-color: #ff9800;" data-color="#ff9800"></div>
+                <div class="color-option" style="background-color: #607d8b;" data-color="#607d8b"></div>
+                <div class="color-option" style="background-color: #795548;" data-color="#795548"></div>
+                <div class="color-option" style="background-color: #e91e63;" data-color="#e91e63"></div>
+                <div class="color-option" style="background-color: #00bcd4;" data-color="#00bcd4"></div>
+            </div>
+
+            <div class="custom-color-section">
+                <input type="color" class="custom-color-input" id="customColorPicker" value="#ff4500">
+                <span class="custom-color-label">Personalizar color</span>
+            </div>
+        </div>
+
+        <button class="search-btn" onclick="searchUsers()">
+            🔍 Buscar usuarios
+        </button>
+    </div>
+</div>

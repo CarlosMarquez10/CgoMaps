@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <%- include('partials/head') %>
+</head>
+
+<body>
+  <!-- Mapa -->
+  <div id="map"></div>
+
+  <!-- Menú contextual -->
+  <div id="contextMenu" class="context-menu" style="display:none;">
+    <div class="context-title">Opciones</div>
+    <label class="context-option">
+      <input type="checkbox" id="togglePopupsCheckbox" checked>
+      Mostrar contenedores de puntos
+    </label>
+  </div>
+
+  <!-- Menú inferior -->
+  <%- include('partials/menu') %>
+
+    <!-- Modal de medición -->
+    <%- include('partials/modal') %>
+
+      <!-- Modal de carga -->
+      <%- include('partials/upload-modal') %>
+
+        <!-- Dropdown de mapas -->
+        <%- include('partials/map-dropdown') %>
+
+          <%- include('partials/scripts') %>
+</body>
+
+</html>
