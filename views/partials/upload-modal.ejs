@@ -34,6 +34,41 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="docTypeModal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Tipo de documento</h2>
+            <button class="close-btn" onclick="closeDocTypeModal()">✕</button>
+        </div>
+        <div class="preview-section">
+            <div class="form-group">
+                <label class="form-label">Archivo seleccionado:</label>
+                <div id="docTypeFileName" class="status-message"></div>
+            </div>
+            <div class="actions-list">
+                <div class="action-row">
+                    <div class="action-label">Archivo completo</div>
+                    <button type="button" class="icon-btn download" onclick="downloadDocType()">
+                        <i data-lucide="download"></i>
+                    </button>
+                </div>
+                <div class="action-row">
+                    <div class="action-label">Archivo para Sac</div>
+                    <button type="button" class="icon-btn download" onclick="downloadDocTypeSac()">
+                        <i data-lucide="download"></i>
+                    </button>
+                </div>
+                <div class="action-row">
+                    <div class="action-label">Tabla de Correria</div>
+                    <button type="button" class="icon-btn download" onclick="downloadDocTypeCorreria()">
+                        <i data-lucide="download"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
 <!-- Modal preparar datos -->
 <div class="modal-overlay" id="prepareModal">
     <div class="modal-content" style="max-width: 600px;">
@@ -116,6 +151,39 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="syncModal">
+    <div class="modal-content" style="max-width: 560px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Sincronización</h2>
+            <button class="close-btn" onclick="closeSyncModal()">✕</button>
+        </div>
+        <div class="preview-section">
+            <div class="form-group">
+                <label class="form-label">Proyecto actual:</label>
+                <div id="syncCurrentFileName" class="status-message"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Proyecto nuevo:</label>
+                <div id="syncNewFileName" class="status-message"></div>
+            </div>
+            <div class="actions-list">
+                <div class="action-row">
+                    <div class="action-label">Limpiar mapa y abrir nuevo</div>
+                    <button type="button" class="icon-btn download" onclick="syncClearAndOpen()">
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
+                </div>
+                <div class="action-row">
+                    <div class="action-label">Unificar con proyecto abierto</div>
+                    <button type="button" class="icon-btn download" onclick="syncMergeAndOpen()">
+                        <i data-lucide="git-merge"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
 <!-- Modal proyectos (data) -->
 <div class="modal-overlay" id="dataModal">
     <div class="modal-content" style="max-width: 700px;">
@@ -128,6 +196,37 @@
         <div class="preview-section">
             <div class="table-container">
                 <table id="projectsTable" class="preview-table"></table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Exportar -->
+<div class="modal-overlay" id="exportModal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Crear Excel</h2>
+            <button class="close-btn" onclick="closeExportModal()">✕</button>
+        </div>
+        <div class="preview-section">
+            <div class="table-container">
+                <table id="exportFilesTable" class="preview-table"></table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Resumen por Motivo -->
+<div class="modal-overlay" id="motivoModal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Resumen por Motivo</h2>
+            <button class="close-btn" onclick="closeMotivoModal()">✕</button>
+        </div>
+        <div class="preview-section">
+            
+            <div class="table-container">
+                <table id="motivoSummaryTable" class="preview-table"></table>
             </div>
         </div>
     </div>

@@ -84,6 +84,10 @@ document.addEventListener("click", (e) => {
 
 // Funciones placeholder para otros botones
 function showFeature(feature) {
+    if (feature === 'export') {
+        openExportModal();
+        return;
+    }
     alert(`Funcionalidad "${feature}" será implementada próximamente`);
 }
 
@@ -92,7 +96,14 @@ let selectedColor = '#ff4500';
 let projectLayer = null;
 let currentProjectFile = null;
 let correriaAssign = { active: false, name: '', color: '#28a745' };
+// variable already declared below; skip re-declaration
+let lassoMode = false;
+let lassoActive = false;
+let lassoPath = [];
+let lassoPolyline = null;
+let lassoPolygon = null;
 let projectPopupsEnabled = true;
+let unassignMode = false;
 
 function createPinIcon(color, extraClass = '') {
     const html = `\n<div class="pin" style="--pin-color:${color}">\n  <svg viewBox="0 0 24 24" class="pin-svg">\n    <path d="M12 2c4.971 0 9 4.029 9 9 0 6.394-9 13-9 13S3 17.394 3 11c0-4.971 4.029-9 9-9z" fill="var(--pin-color)"></path>\n    <circle cx="12" cy="11" r="3" fill="#ffffff"></circle>\n  </svg>\n</div>`;
@@ -592,8 +603,11 @@ window.onclick = function (event) {
     const prepareModal = document.getElementById('prepareModal');
     const colorPickerModal = document.getElementById('colorPickerModal');
     const dataModal = document.getElementById('dataModal');
+    const exportModal = document.getElementById('exportModal');
     const workshopModal = document.getElementById('workshopModal');
-
+    const docTypeModal = document.getElementById('docTypeModal');
+    const syncModal = document.getElementById('syncModal');
+    const motivoModal = document.getElementById('motivoModal');
     if (event.target == measureModal) {
         closeMeasureModal();
     }
@@ -609,8 +623,20 @@ window.onclick = function (event) {
     if (event.target == dataModal) {
         closeDataModal();
     }
+    if (event.target == exportModal) {
+        closeExportModal();
+    }
     if (event.target == workshopModal) {
         closeWorkshopModal();
+    }
+    if (event.target == docTypeModal) {
+        closeDocTypeModal();
+    }
+    if (event.target == syncModal) {
+        closeSyncModal();
+    }
+    if (event.target == motivoModal) {
+        closeMotivoModal();
     }
 }
 
@@ -640,6 +666,10 @@ async function openDataModal() {
 }
 
 function openWorkshopModal() {
+    if (!currentProjectFile) {
+        Swal.fire('Proyecto requerido', 'Abre un proyecto en "Proyectos guardados" para gestionar correrías', 'warning');
+        return;
+    }
     const el = document.getElementById('workshopModal');
     if (el) {
         el.classList.add('show');
@@ -653,6 +683,7 @@ function openWorkshopModal() {
         if (window.lucide && typeof lucide.createIcons === 'function') {
             lucide.createIcons();
         }
+        loadProjectCorrerias();
     }
 }
 
@@ -677,15 +708,55 @@ function openAutoCorreria() {
 }
 
 async function saveCorreriaName() {
+    if (hasUnsavedCorreriaChanges()) {
+        await Swal.fire('Guardar requerido', 'Guarde los cambios recientes de la correría antes de crear una nueva', 'warning');
+        return;
+    }
     const input = document.getElementById('correriaNameInput');
     const name = input ? input.value.trim() : '';
     if (!name) {
         await Swal.fire('Dato requerido', 'Ingrese el nombre de la correría', 'warning');
         return;
     }
+    const norm = name.toUpperCase();
+    try {
+        if (currentProjectFile) {
+            const resp = await fetch('/projects/' + encodeURIComponent(currentProjectFile) + '/correrias');
+            const data = await resp.json();
+            if (resp.ok) {
+                const existsServer = (data.correrias || []).some(it => String(it.description || '').trim().toUpperCase() === norm);
+                if (existsServer) {
+                    await Swal.fire('Ya existe', 'Ya existe una correría con ese nombre', 'warning');
+                    return;
+                }
+            }
+        }
+    } catch {}
+    const existsLocal = (correrias || []).some(c => String(c.name || '').trim().toUpperCase() === norm);
+    if (existsLocal) {
+        await Swal.fire('Ya existe', 'Ya existe una correría con ese nombre', 'warning');
+        return;
+    }
     addCorreriaRow(name);
     input.value = '';
     await Swal.fire('Guardado', 'Correría: ' + name, 'success');
+}
+
+function hasUnsavedCorreriaChanges() {
+    const table = document.getElementById('correriaTable');
+    if (!table) return false;
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    for (const row of rows) {
+        const nameCell = row.children[0];
+        if (nameCell && nameCell.querySelector('input')) return true;
+        const saveCell = row.children[4];
+        const saveBtn = saveCell ? saveCell.querySelector('button.icon-btn.save') : null;
+        if (saveBtn && !saveBtn.classList.contains('saved')) return true;
+        const terminalCell = row.children[2];
+        const tInput = terminalCell ? terminalCell.querySelector('input') : null;
+        if (tInput && !tInput.disabled) return true;
+    }
+    return false;
 }
 
 let correrias = [];
@@ -706,8 +777,8 @@ function ensureCorreriaTableHeader() {
     thE.textContent = 'Editar';
     const thS = document.createElement('th');
     thS.textContent = 'Guardar';
-    const thV = document.createElement('th');
-    thV.textContent = 'Ver';
+    const thSel = document.createElement('th');
+    thSel.textContent = 'Sel.';
     const thA = document.createElement('th');
     thA.textContent = 'Add';
     hr.appendChild(thN);
@@ -715,7 +786,7 @@ function ensureCorreriaTableHeader() {
     hr.appendChild(thT);
     hr.appendChild(thE);
     hr.appendChild(thS);
-    hr.appendChild(thV);
+    hr.appendChild(thSel);
     hr.appendChild(thA);
     thead.appendChild(hr);
     table.appendChild(thead);
@@ -758,14 +829,12 @@ function addCorreriaRow(name) {
     saveBtn.appendChild(saveIcon);
     saveBtn.addEventListener('click', () => saveCorreria(idx));
     tdSave.appendChild(saveBtn);
-    const tdView = document.createElement('td');
-    const viewBtn = document.createElement('button');
-    viewBtn.type = 'button';
-    viewBtn.className = 'icon-btn view';
-    const viewIcon = document.createElement('i');
-    viewIcon.setAttribute('data-lucide', 'eye');
-    viewBtn.appendChild(viewIcon);
-    tdView.appendChild(viewBtn);
+    const tdSel = document.createElement('td');
+    const selCb = document.createElement('input');
+    selCb.type = 'checkbox';
+    selCb.className = 'correria-select';
+    selCb.dataset.desc = name;
+    tdSel.appendChild(selCb);
     const tdAdd = document.createElement('td');
     const addBtn = document.createElement('button');
     addBtn.type = 'button';
@@ -780,12 +849,159 @@ function addCorreriaRow(name) {
     tr.appendChild(tdTerminal);
     tr.appendChild(tdEdit);
     tr.appendChild(tdSave);
-    tr.appendChild(tdView);
+    tr.appendChild(tdSel);
     tr.appendChild(tdAdd);
     tbody.appendChild(tr);
     if (window.lucide && typeof lucide.createIcons === 'function') {
         lucide.createIcons();
     }
+}
+
+async function loadProjectCorrerias() {
+    try {
+        const resp = await fetch('/projects/' + encodeURIComponent(currentProjectFile) + '/correrias');
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'No se pudieron leer correrías');
+        renderCorreriasFromProject(data.correrias || []);
+    } catch (e) {
+        const table = document.getElementById('correriaTable');
+        ensureCorreriaTableHeader();
+        const tbody = table.querySelector('tbody');
+        tbody.innerHTML = '';
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.textContent = 'Error al cargar correrías';
+        td.colSpan = 7;
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    }
+}
+
+function renderCorreriasFromProject(list) {
+    ensureCorreriaTableHeader();
+    ensureCorreriaToolbar();
+    const table = document.getElementById('correriaTable');
+    const tbody = table.querySelector('tbody');
+    tbody.innerHTML = '';
+    correrias = [];
+    list.forEach(item => {
+        const idx = correrias.length;
+        correrias.push({ name: item.description, count: item.count, terminal: item.tpl, estado: item.estado, color: item.color, estadoCorreria: item.estadoCorreria || '' });
+        const tr = document.createElement('tr');
+        const tdName = document.createElement('td');
+        tdName.textContent = item.description;
+        const tdCount = document.createElement('td');
+        tdCount.textContent = String(item.count || 0);
+        const tdTerminal = document.createElement('td');
+        const terminalInput = document.createElement('input');
+        terminalInput.type = 'text';
+        terminalInput.className = 'select-input terminal-input';
+        terminalInput.value = item.tpl || '';
+        terminalInput.disabled = true;
+        tdTerminal.appendChild(terminalInput);
+        const tdEdit = document.createElement('td');
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'icon-btn edit';
+        const editIcon = document.createElement('i');
+        editIcon.setAttribute('data-lucide', 'pencil');
+        editBtn.appendChild(editIcon);
+        editBtn.addEventListener('click', () => editCorreria(idx));
+        tdEdit.appendChild(editBtn);
+        const tdSave = document.createElement('td');
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'icon-btn save';
+        const saveIcon = document.createElement('i');
+        saveIcon.setAttribute('data-lucide', 'save');
+        saveBtn.appendChild(saveIcon);
+        saveBtn.addEventListener('click', () => saveCorreria(idx));
+        if ((item.estadoCorreria || '').toLowerCase() === 'guardado') {
+            saveBtn.classList.add('saved');
+            saveBtn.disabled = true;
+        }
+        tdSave.appendChild(saveBtn);
+        const tdSel = document.createElement('td');
+        const selCb = document.createElement('input');
+        selCb.type = 'checkbox';
+        selCb.className = 'correria-select';
+        selCb.dataset.desc = item.description;
+        tdSel.appendChild(selCb);
+        const tdAdd = document.createElement('td');
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'icon-btn add';
+        const addIcon = document.createElement('i');
+        addIcon.setAttribute('data-lucide', 'plus');
+        addBtn.appendChild(addIcon);
+        addBtn.addEventListener('click', () => startCorreriaAssignment(idx));
+        if ((item.estadoCorreria || '').toLowerCase() === 'guardado') {
+            addBtn.disabled = true;
+        }
+        tdAdd.appendChild(addBtn);
+        tr.appendChild(tdName);
+        tr.appendChild(tdCount);
+        tr.appendChild(tdTerminal);
+        tr.appendChild(tdEdit);
+        tr.appendChild(tdSave);
+        tr.appendChild(tdSel);
+        tr.appendChild(tdAdd);
+        tbody.appendChild(tr);
+    });
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    }
+    updateCorreriasTotalsBanner();
+}
+
+function ensureCorreriaToolbar() {
+    const container = document.getElementById('correriaListContainer');
+    if (!container) return;
+    let toolbar = document.getElementById('correriaTableToolbar');
+    if (!toolbar) {
+        toolbar = document.createElement('div');
+        toolbar.id = 'correriaTableToolbar';
+        toolbar.className = 'table-toolbar';
+        const graphBtn = document.createElement('button');
+        graphBtn.type = 'button';
+        graphBtn.className = 'icon-btn graph-btn';
+        const icon = document.createElement('i');
+        icon.setAttribute('data-lucide', 'map');
+        graphBtn.appendChild(icon);
+        const label = document.createElement('span');
+        label.textContent = 'Graficar';
+        label.style.marginLeft = '6px';
+        graphBtn.appendChild(label);
+        graphBtn.addEventListener('click', plotSelectedCorrerias);
+        toolbar.appendChild(graphBtn);
+        container.insertBefore(toolbar, container.firstChild);
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+            lucide.createIcons();
+        }
+    }
+}
+
+function plotSelectedCorrerias() {
+    if (!currentProjectFile) {
+        Swal.fire('Proyecto requerido', 'Abre un proyecto en "Proyectos guardados"', 'warning');
+        return;
+    }
+    const table = document.getElementById('correriaTable');
+    const checks = table ? table.querySelectorAll('tbody input.correria-select:checked') : [];
+    const descs = Array.from(checks).map(cb => cb.dataset.desc).filter(Boolean);
+    if (!descs.length) {
+        Swal.fire('Selección requerida', 'Marca al menos una correría para graficar', 'info');
+        return;
+    }
+    openProject(currentProjectFile, descs);
+}
+
+function refreshProject(correriaDesc) {
+    if (!currentProjectFile) {
+        Swal.fire('Proyecto requerido', 'Abre un proyecto en "Proyectos guardados"', 'warning');
+        return;
+    }
+    openProject(currentProjectFile, correriaDesc);
 }
 
 function generateTerminalCode() {
@@ -813,7 +1029,9 @@ function editCorreria(idx) {
     const tInput = tdTerminal.querySelector('input');
     if (tInput) tInput.disabled = false;
     const saveBtn = row.children[4]?.querySelector('button.icon-btn.save');
-    if (saveBtn) saveBtn.classList.remove('saved');
+    if (saveBtn) { saveBtn.classList.remove('saved'); saveBtn.disabled = false; }
+    const addBtn = row.children[6]?.querySelector('button.icon-btn.add');
+    if (addBtn) { addBtn.disabled = false; }
 }
 
 function saveCorreria(idx) {
@@ -844,12 +1062,76 @@ function saveCorreria(idx) {
         if (ok) {
           if (tInput) tInput.disabled = true;
           const saveBtn = row.children[4]?.querySelector('button.icon-btn.save');
-          if (saveBtn) saveBtn.classList.add('saved');
+          if (saveBtn) { saveBtn.classList.add('saved'); saveBtn.disabled = true; }
+          correrias[idx].estadoCorreria = 'guardado';
+          updateCorreriasTotalsBanner();
+          const addBtn = row.children[6]?.querySelector('button.icon-btn.add');
+          if (addBtn) { addBtn.disabled = true; }
+          if (correriaAssign && correriaAssign.active && correriaAssign.idx === idx) {
+            correriaAssign.active = false;
+            hideCorreriaBanner();
+            setProjectPopupsEnabled(true);
+          }
         } else {
           Swal.fire('Error', 'No se pudo actualizar Tpl', 'error');
         }
       })
       .catch(() => Swal.fire('Error', 'Falló la actualización en Excel', 'error'));
+}
+
+function ensureCorreriasTotalsBanner() {
+    let el = document.getElementById('correriasTotalBanner');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'correriasTotalBanner';
+        el.className = 'correrias-total-banner';
+        const label = document.createElement('span');
+        label.className = 'correrias-total-label';
+        label.textContent = 'Correrías Creadas:';
+        const value = document.createElement('span');
+        value.className = 'correrias-total-value';
+        el.appendChild(label);
+        el.appendChild(document.createTextNode(' '));
+        el.appendChild(value);
+        document.body.appendChild(el);
+    }
+    return el;
+}
+
+function showCorreriasTotalsBanner() {
+    const el = ensureCorreriasTotalsBanner();
+    el.style.display = 'flex';
+    updateCorreriasTotalsBanner();
+}
+
+function hideCorreriasTotalsBanner() {
+    const el = document.getElementById('correriasTotalBanner');
+    if (el) el.style.display = 'none';
+}
+
+function updateCorreriasTotalsBanner() {
+    const el = ensureCorreriasTotalsBanner();
+    const valEl = el.querySelector('.correrias-total-value');
+    const count = (correrias || []).filter(c => (c.estadoCorreria || '').toLowerCase() === 'guardado').length;
+    if (valEl) valEl.textContent = String(count);
+}
+
+async function refreshCorreriasTotalsFromServer(file) {
+    try {
+        const resp = await fetch('/projects/' + encodeURIComponent(file) + '/correrias');
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'No se pudieron leer correrías');
+        const list = data.correrias || [];
+        const count = list.filter(it => (it.estadoCorreria || '').toLowerCase() === 'guardado').length;
+        const el = ensureCorreriasTotalsBanner();
+        const valEl = el.querySelector('.correrias-total-value');
+        if (valEl) valEl.textContent = String(count);
+        el.style.display = 'flex';
+    } catch (e) {
+        // en caso de error, mantener el banner oculto
+        const el = document.getElementById('correriasTotalBanner');
+        if (el) el.style.display = 'none';
+    }
 }
 
 function startCorreriaAssignment(idx) {
@@ -860,6 +1142,13 @@ function startCorreriaAssignment(idx) {
     const table = document.getElementById('correriaTable');
     const row = table.querySelectorAll('tbody tr')[idx];
     if (!row) return;
+    const saveBtnEl = row.children[4]?.querySelector('button.icon-btn.save');
+    const saveEnabled = !!(saveBtnEl && !saveBtnEl.disabled);
+    const isSavedState = (correrias[idx] && (correrias[idx].estadoCorreria || '').toLowerCase() === 'guardado');
+    if (isSavedState && !saveEnabled) {
+        Swal.fire('Correría guardada', 'No se puede asignar más puntos a esta correría', 'info');
+        return;
+    }
     const nameCell = row.children[0];
     const input = nameCell.querySelector('input');
     const name = input ? input.value.trim() : nameCell.textContent.trim();
@@ -901,7 +1190,28 @@ function openCorreriaColorPicker() {
 }
 
 function handleMarkerClick(props, marker, bounceClass) {
+    if (unassignMode) {
+        desprogramarMarker(props, marker, bounceClass);
+        return;
+    }
+    assignMarkerToCorreria(props, marker, bounceClass);
+}
+
+function assignMarkerToCorreria(props, marker, bounceClass) {
     if (!correriaAssign.active) return;
+    const ci = correriaAssign.idx;
+    const table = document.getElementById('correriaTable');
+    const row = table ? table.querySelectorAll('tbody tr')[ci] : null;
+    const saveBtnEl = row ? row.children[4]?.querySelector('button.icon-btn.save') : null;
+    const saveEnabled = !!(saveBtnEl && !saveBtnEl.disabled);
+    const isSavedState = (correrias[ci] && (correrias[ci].estadoCorreria || '').toLowerCase() === 'guardado');
+    if (isSavedState && !saveEnabled) {
+        correriaAssign.active = false;
+        hideCorreriaBanner();
+        setProjectPopupsEnabled(true);
+        Swal.fire('Correría guardada', 'No se puede asignar más puntos a esta correría', 'info');
+        return;
+    }
     const id = props['Id. Orden Trabajo'];
     if (!id) {
         Swal.fire('Sin ID', 'El punto no tiene "Id. Orden Trabajo"', 'error');
@@ -958,6 +1268,7 @@ function minimizeWorkshopModal() {
         if (minimize) minimize.style.display = 'none';
         enableWorkshopDrag(true);
         showCorreriaBanner();
+        updateCorreriasTotalsBanner();
     }
 }
 
@@ -977,6 +1288,7 @@ function maximizeWorkshopModal() {
         if (minimize) minimize.style.display = 'inline-block';
         enableWorkshopDrag(false);
         hideCorreriaBanner();
+        updateCorreriasTotalsBanner();
         setProjectPopupsEnabled(true);
     }
 }
@@ -1054,10 +1366,42 @@ function setProjectPopupsEnabled(enabled) {
 function initContextMenu() {
     const menu = document.getElementById('contextMenu');
     const toggleCb = document.getElementById('togglePopupsCheckbox');
-    if (!menu || !toggleCb) return;
+    const lassoCb = document.getElementById('toggleLassoCheckbox');
+    const unassignCb = document.getElementById('toggleUnassignCheckbox');
+    const motivoCb = document.getElementById('toggleMotivoModalCheckbox');
+    if (!menu || !toggleCb || !lassoCb || !unassignCb || !motivoCb) return;
     toggleCb.checked = projectPopupsEnabled;
     toggleCb.addEventListener('change', () => {
         setProjectPopupsEnabled(toggleCb.checked);
+    });
+    lassoCb.checked = lassoMode;
+    lassoCb.addEventListener('change', () => {
+        enableLassoMode(lassoCb.checked);
+    });
+    unassignCb.checked = unassignMode;
+    unassignCb.addEventListener('change', () => {
+        unassignMode = !!unassignCb.checked;
+        if (unassignMode) {
+            correriaAssign.active = false;
+            hideCorreriaBanner();
+            setProjectPopupsEnabled(false);
+            Swal.fire('Modo desprogramar', 'Haga clic en puntos para vaciar campos y pintar con Color Tarea', 'info');
+        } else {
+            setProjectPopupsEnabled(true);
+        }
+    });
+    motivoCb.checked = !!(document.getElementById('motivoModal') && document.getElementById('motivoModal').classList.contains('show'));
+    motivoCb.addEventListener('change', () => {
+        if (motivoCb.checked) {
+            if (!currentProjectFile) {
+                Swal.fire('Proyecto requerido', 'Abre un proyecto para ver el resumen por motivo', 'warning');
+                motivoCb.checked = false;
+                return;
+            }
+            openMotivoSummaryModal(currentProjectFile);
+        } else {
+            closeMotivoModal();
+        }
     });
     map.on('contextmenu', (e) => {
         const pt = e.containerPoint;
@@ -1071,6 +1415,131 @@ function initContextMenu() {
     document.addEventListener('keydown', (ev) => {
         if (ev.key === 'Escape') menu.style.display = 'none';
     });
+}
+
+function desprogramarMarker(props, marker, bounceClass) {
+    const id = props['Id. Orden Trabajo'];
+    if (!id) {
+        Swal.fire('Sin ID', 'El punto no tiene "Id. Orden Trabajo"', 'error');
+        return;
+    }
+    fetch('/projects/' + encodeURIComponent(currentProjectFile) + '/unassign-record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idOrdenTrabajo: String(id) })
+    })
+        .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+        .then(({ ok }) => {
+            if (!ok) {
+                Swal.fire('Error', 'No se pudo desprogramar el punto', 'error');
+                return;
+            }
+            const colorTarea = marker._colorTarea || (marker._props ? marker._props['Color Tarea'] : null) || '#ff4500';
+            const icon = createPinIcon(colorTarea, bounceClass);
+            marker.setIcon(icon);
+            if (marker._props) {
+                marker._props.Description = '';
+                marker._props.EstadoOts = '';
+                marker._props['Color Correria'] = '';
+                marker._props.Tpl = '';
+            }
+        })
+        .catch(() => Swal.fire('Error', 'Falló la desprogramación', 'error'));
+}
+
+function enableLassoMode(enable) {
+    lassoMode = !!enable;
+    if (lassoMode) {
+        map.on('mousedown', lassoStart);
+        map.on('mousemove', lassoMove);
+        map.on('mouseup', lassoEnd);
+        map.on('touchstart', lassoStart);
+        map.on('touchmove', lassoMove);
+        map.on('touchend', lassoEnd);
+    } else {
+        map.off('mousedown', lassoStart);
+        map.off('mousemove', lassoMove);
+        map.off('mouseup', lassoEnd);
+        map.off('touchstart', lassoStart);
+        map.off('touchmove', lassoMove);
+        map.off('touchend', lassoEnd);
+        lassoActive = false;
+        if (lassoPolyline) { map.removeLayer(lassoPolyline); lassoPolyline = null; }
+        if (lassoPolygon) { map.removeLayer(lassoPolygon); lassoPolygon = null; }
+        lassoPath = [];
+    }
+}
+
+function lassoStart(e) {
+    if (!lassoMode) return;
+    if (!correriaAssign.active) {
+        Swal.fire('Asignación requerida', 'Active la correría para usar la selección por lazo', 'info');
+        return;
+    }
+    lassoActive = true;
+    lassoPath = [];
+    const ll = e.latlng || map.mouseEventToLatLng(e.originalEvent);
+    if (!ll) return;
+    lassoPath.push(ll);
+    if (lassoPolyline) { map.removeLayer(lassoPolyline); }
+    lassoPolyline = L.polyline(lassoPath, { color: '#ff4500', weight: 2 });
+    lassoPolyline.addTo(map);
+    map.dragging.disable();
+}
+
+function lassoMove(e) {
+    if (!lassoActive) return;
+    const ll = e.latlng || (e.originalEvent ? map.mouseEventToLatLng(e.originalEvent) : null);
+    if (!ll) return;
+    lassoPath.push(ll);
+    if (lassoPolyline) lassoPolyline.setLatLngs(lassoPath);
+}
+
+function lassoEnd(e) {
+    if (!lassoActive) return;
+    lassoActive = false;
+    map.dragging.enable();
+    if (lassoPath.length < 3) {
+        if (lassoPolyline) { map.removeLayer(lassoPolyline); lassoPolyline = null; }
+        lassoPath = [];
+        return;
+    }
+    const path = lassoPath.slice();
+    if (lassoPolyline) { map.removeLayer(lassoPolyline); lassoPolyline = null; }
+    if (lassoPolygon) { map.removeLayer(lassoPolygon); }
+    lassoPolygon = L.polygon(path, { color: '#ff4500', weight: 1, fillOpacity: 0.05 });
+    lassoPolygon.addTo(map);
+    const pts = path.map(p => ({ x: p.lng, y: p.lat }));
+    if (projectLayer) {
+        const targets = [];
+        projectLayer.eachLayer(m => {
+            if (m && m.getLatLng) {
+                const ll = m.getLatLng();
+                const inside = pointInPolygon({ x: ll.lng, y: ll.lat }, pts);
+                if (inside) targets.push(m);
+            }
+        });
+        targets.forEach(m => {
+            const props = m._props || {};
+            const b = m._bounceClass || '';
+            assignMarkerToCorreria(props, m, b);
+        });
+    }
+    setTimeout(() => {
+        if (lassoPolygon) { map.removeLayer(lassoPolygon); lassoPolygon = null; }
+        lassoPath = [];
+    }, 400);
+}
+
+function pointInPolygon(pt, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+        const intersect = ((yi > pt.y) !== (yj > pt.y)) && (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi + 0.0000001) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
 }
 
 let workshopDragEnabled = false;
@@ -1184,7 +1653,31 @@ function renderProjectsTable(files) {
             openBtn.appendChild(icon);
             openBtn.appendChild(lbl);
             openBtn.addEventListener('click', () => openProject(file));
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'delete-btn';
+            const delIcon = document.createElement('i');
+            delIcon.setAttribute('data-lucide', 'trash-2');
+            const delLbl = document.createElement('span');
+            delLbl.textContent = 'Borrar';
+            delBtn.appendChild(delIcon);
+            delBtn.appendChild(delLbl);
+            delBtn.addEventListener('click', async () => {
+                const res = await Swal.fire({ title: 'Confirmar', text: '¿Borrar este archivo?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, borrar', cancelButtonText: 'Cancelar' });
+                if (res.isConfirmed) {
+                    try {
+                        const r = await fetch('/projects/' + encodeURIComponent(file), { method: 'DELETE' });
+                        const d = await r.json();
+                        if (!r.ok) throw new Error(d.error || 'No se pudo borrar');
+                        tr.remove();
+                        Swal.fire('Eliminado', 'Archivo borrado correctamente', 'success');
+                    } catch (e) {
+                        Swal.fire('Error', e.message || 'No se pudo borrar', 'error');
+                    }
+                }
+            });
             tdActions.appendChild(openBtn);
+            tdActions.appendChild(delBtn);
             tr.appendChild(tdName);
             tr.appendChild(tdActions);
             tbody.appendChild(tr);
@@ -1206,9 +1699,19 @@ map.on('click', () => {
     }
 });
 initContextMenu();
-async function openProject(file) {
+async function openProject(file, correriaDesc) {
     try {
-        const resp = await fetch('/projects/' + encodeURIComponent(file) + '/points');
+        if (currentProjectFile && projectLayer && file && currentProjectFile !== file) {
+            openSyncModal(file);
+            return;
+        }
+        let url = '/projects/' + encodeURIComponent(file) + '/points';
+        if (Array.isArray(correriaDesc) && correriaDesc.length) {
+            url += '?descriptions=' + encodeURIComponent(correriaDesc.join(','));
+        } else if (typeof correriaDesc === 'string' && correriaDesc) {
+            url += '?description=' + encodeURIComponent(correriaDesc);
+        }
+        const resp = await fetch(url);
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || 'No se pudieron cargar puntos');
         if (projectLayer) {
@@ -1217,17 +1720,24 @@ async function openProject(file) {
         projectLayer = L.layerGroup();
         const bounds = [];
         (data.points || []).forEach(p => {
-            const color = typeof p.color === 'string' && p.color.trim() ? p.color : '#28a745';
+            const color = typeof p.color === 'string' && p.color.trim() ? p.color : '#202020';
             const f = p.props || {};
+            const colorCorr = typeof f['Color Correria'] === 'string' && f['Color Correria'].trim() ? f['Color Correria'].trim() : '';
+            const colorMotivo = typeof f['Color Motivo'] === 'string' && f['Color Motivo'].trim() ? f['Color Motivo'].trim() : '';
+            const colorTarea = typeof f['Color Tarea'] === 'string' && f['Color Tarea'].trim() ? f['Color Tarea'].trim() : '';
+            const chosenColor = colorCorr || colorMotivo || colorTarea || color;
             const reqDate = parseDDMMYYYY(f['Fecha Solicitud']);
             const bdays = businessDaysBetween(reqDate, new Date());
             const bounceClass = bdays >= 3 ? 'pin-bounce-fast' : (bdays >= 2 ? 'pin-bounce-slow' : '');
-            const marker = L.marker([p.lat, p.lng], { icon: createPinIcon(color, bounceClass) });
-            const keys = ['Cliente','Ruta','Dirección','Nombre','Ciclo','Tarea','Id. Orden Trabajo','Revisión','Nombre Localidad','Gps','Fecha Solicitud'];
+            const marker = L.marker([p.lat, p.lng], { icon: createPinIcon(chosenColor, bounceClass) });
+            const keys = ['Cliente','Ruta','Dirección','Nombre','Ciclo','Tarea','Motivo','Id. Orden Trabajo','Revisión','Nombre Localidad','Gps','Fecha Solicitud','Description'];
             const lines = keys.map(k => `<div><strong>${k}:</strong> ${f[k] || ''}</div>`).join('');
             const popupHtml = `<div>${lines}</div>`;
             marker.bindPopup(popupHtml);
             marker._popupContent = popupHtml;
+            marker._props = f;
+            marker._colorTarea = colorTarea || color;
+            marker._bounceClass = bounceClass;
             marker.on('click', () => handleMarkerClick(f, marker, bounceClass));
             marker.addTo(projectLayer);
             bounds.push([p.lat, p.lng]);
@@ -1238,8 +1748,263 @@ async function openProject(file) {
             map.fitBounds(bounds, { padding: [20, 20] });
         }
         closeDataModal();
-        Swal.fire('Cargado', 'Se graficaron ' + (data.points ? data.points.length : 0) + ' puntos', 'success');
+        const total = data.points ? data.points.length : 0;
+        const asignados = (data.points || []).filter(p => p.props && p.props['__asignado'] === '1').length;
+        const corrText = Array.isArray(correriaDesc) ? (correriaDesc.join(', ')) : (correriaDesc || '');
+        Swal.fire('Cargado', 'Se graficaron ' + total + ' puntos' + (corrText ? (' de la correría(s): ' + corrText) : '') + ' • Asignados: ' + asignados, 'success');
+        await refreshCorreriasTotalsFromServer(file);
+        if (!correriaDesc) {
+            await openMotivoSummaryModal(file);
+        }
     } catch (e) {
         Swal.fire('Error', e.message || 'No se pudieron graficar los puntos', 'error');
     }
+}
+
+let pendingOpenFile = '';
+function openSyncModal(file) {
+    pendingOpenFile = file || '';
+    const el = document.getElementById('syncModal');
+    const cur = document.getElementById('syncCurrentFileName');
+    const nw = document.getElementById('syncNewFileName');
+    if (!el) return;
+    if (cur) cur.textContent = currentProjectFile || '';
+    if (nw) nw.textContent = pendingOpenFile || '';
+    el.classList.add('show');
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    }
+}
+
+function closeSyncModal() {
+    const el = document.getElementById('syncModal');
+    if (el) el.classList.remove('show');
+}
+
+async function syncClearAndOpen() {
+    if (!pendingOpenFile) return;
+    const res = await Swal.fire({ title: 'Aviso', text: 'Guarde los cambios recientes antes de limpiar. ¿Continuar?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, continuar', cancelButtonText: 'Cancelar' });
+    if (res.isConfirmed) {
+        if (projectLayer) {
+            map.removeLayer(projectLayer);
+            projectLayer = null;
+        }
+        currentProjectFile = null;
+        closeSyncModal();
+        openProject(pendingOpenFile);
+    }
+}
+
+async function syncMergeAndOpen() {
+    if (!pendingOpenFile || !currentProjectFile) return;
+    try {
+        const resp = await fetch('/projects/merge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target: currentProjectFile, source: pendingOpenFile })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'No se pudo unificar');
+        closeSyncModal();
+        openProject(currentProjectFile);
+    } catch (e) {
+        Swal.fire('Error', e.message || 'Falló la unificación', 'error');
+    }
+}
+function openExportModal() {
+    const el = document.getElementById('exportModal');
+    if (el) {
+        el.classList.add('show');
+        loadExportFiles();
+    }
+}
+
+function closeExportModal() {
+    const el = document.getElementById('exportModal');
+    if (el) el.classList.remove('show');
+}
+
+async function loadExportFiles() {
+    try {
+        const resp = await fetch('/projects');
+        const files = await resp.json();
+        renderExportFiles(files);
+    } catch (e) {
+        const table = document.getElementById('exportFilesTable');
+        if (table) {
+            table.innerHTML = '';
+            const tbody = document.createElement('tbody');
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.textContent = 'Error al cargar archivos';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            table.appendChild(tbody);
+        }
+    }
+}
+
+function renderExportFiles(files) {
+    const table = document.getElementById('exportFilesTable');
+    if (!table) return;
+    table.innerHTML = '';
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    const thN = document.createElement('th');
+    thN.textContent = 'Archivo';
+    hr.appendChild(thN);
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    if (!files || files.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.textContent = 'No hay archivos en data';
+        td.colSpan = 1;
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    } else {
+        files.forEach(file => {
+            const tr = document.createElement('tr');
+            const tdName = document.createElement('td');
+            const gearBtn = document.createElement('button');
+            gearBtn.type = 'button';
+            gearBtn.className = 'icon-btn gear-btn';
+            const gearIcon = document.createElement('i');
+            gearIcon.setAttribute('data-lucide', 'settings');
+            gearBtn.appendChild(gearIcon);
+            gearBtn.addEventListener('click', () => openDocTypeModal(file));
+            const nameSpan = document.createElement('span');
+            nameSpan.style.marginLeft = '8px';
+            nameSpan.textContent = file;
+            tdName.appendChild(gearBtn);
+            tdName.appendChild(nameSpan);
+            tr.appendChild(tdName);
+            tbody.appendChild(tr);
+        });
+    }
+    table.appendChild(tbody);
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    }
+}
+
+function closeDocTypeModal() {
+    const el = document.getElementById('docTypeModal');
+    if (el) el.classList.remove('show');
+}
+
+function openDocTypeModal(file) {
+    const el = document.getElementById('docTypeModal');
+    const fn = document.getElementById('docTypeFileName');
+    if (!el) return;
+    if (fn) fn.textContent = file || '';
+    el.classList.add('show');
+}
+
+function closeMotivoModal() {
+    const el = document.getElementById('motivoModal');
+    if (el) el.classList.remove('show');
+    const motivoCb = document.getElementById('toggleMotivoModalCheckbox');
+    if (motivoCb) motivoCb.checked = false;
+}
+
+async function openMotivoSummaryModal(file) {
+    const el = document.getElementById('motivoModal');
+    const fn = document.getElementById('motivoFileName');
+    if (!el) return;
+    if (fn) fn.textContent = file || '';
+    el.classList.add('show');
+    const motivoCb = document.getElementById('toggleMotivoModalCheckbox');
+    if (motivoCb) motivoCb.checked = true;
+    await loadMotivoSummary(file);
+}
+
+async function loadMotivoSummary(file) {
+    try {
+        const resp = await fetch('/projects/' + encodeURIComponent(file) + '/motivo-summary');
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'No se pudo cargar resumen');
+        renderMotivoSummaryTable(data.summary || []);
+    } catch (e) {
+        const table = document.getElementById('motivoSummaryTable');
+        if (table) {
+            table.innerHTML = '';
+            const tbody = document.createElement('tbody');
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.textContent = 'Error al cargar resumen por Motivo';
+            td.colSpan = 3;
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            table.appendChild(tbody);
+        }
+    }
+}
+
+function renderMotivoSummaryTable(items) {
+    const table = document.getElementById('motivoSummaryTable');
+    if (!table) return;
+    table.innerHTML = '';
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    const thM = document.createElement('th'); thM.textContent = 'Motivo';
+    const thC = document.createElement('th'); thC.textContent = 'Cant.';
+    const thP = document.createElement('th'); thP.textContent = 'Prog';
+    const thPend = document.createElement('th'); thPend.textContent = 'Pte';
+    const thCol = document.createElement('th'); thCol.textContent = 'Color';
+    hr.appendChild(thM); hr.appendChild(thC); hr.appendChild(thP); hr.appendChild(thPend); hr.appendChild(thCol);
+    thead.appendChild(hr);
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    items.forEach(it => {
+        const tr = document.createElement('tr');
+        const tdM = document.createElement('td'); tdM.textContent = it.motivo || '';
+        const tdC = document.createElement('td'); tdC.textContent = String(it.count || 0);
+        const tdP = document.createElement('td'); tdP.textContent = String(it.programadas || 0);
+        const tdPend = document.createElement('td'); tdPend.textContent = String(Math.max(0, (it.count || 0) - (it.programadas || 0)));
+        const tdCol = document.createElement('td');
+        const swatch = document.createElement('span'); swatch.className = 'color-swatch'; swatch.style.backgroundColor = it.color || '#000000';
+        const label = document.createElement('span'); label.textContent = it.color || '';
+        tdCol.appendChild(swatch);
+        tdCol.appendChild(label);
+        tr.appendChild(tdM);
+        tr.appendChild(tdC);
+        tr.appendChild(tdP);
+        tr.appendChild(tdPend);
+        tr.appendChild(tdCol);
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+}
+
+function downloadDocType() {
+    const fn = document.getElementById('docTypeFileName');
+    const file = fn ? fn.textContent.trim() : '';
+    if (!file) {
+        Swal.fire('Archivo requerido', 'No se encontró archivo para descargar', 'warning');
+        return;
+    }
+    window.location.href = '/projects/' + encodeURIComponent(file) + '/download';
+}
+
+function downloadDocTypeSac() {
+    const fn = document.getElementById('docTypeFileName');
+    const file = fn ? fn.textContent.trim() : '';
+    if (!file) {
+        Swal.fire('Archivo requerido', 'No se encontró archivo para descargar', 'warning');
+        return;
+    }
+    window.location.href = '/projects/' + encodeURIComponent(file) + '/download-sac';
+}
+
+function downloadDocTypeCorreria() {
+    const fn = document.getElementById('docTypeFileName');
+    const file = fn ? fn.textContent.trim() : '';
+    if (!file) {
+        Swal.fire('Archivo requerido', 'No se encontró archivo para descargar', 'warning');
+        return;
+    }
+    window.location.href = '/projects/' + encodeURIComponent(file) + '/download-correria';
 }

@@ -181,6 +181,23 @@
         align-items: center;
         justify-content: center;
       }
+      #docTypeModal {
+        z-index: 2000;
+      }
+      #syncModal {
+        z-index: 2100;
+      }
+      #syncModal .modal-title { color: #fff; }
+      #syncModal #syncCurrentFileName {
+        background-color: #F8BBD0;
+        border-radius: 6px;
+        padding: 8px 12px;
+      }
+      #syncModal #syncNewFileName {
+        background-color: #BBDEFB;
+        border-radius: 6px;
+        padding: 8px 12px;
+      }
 
       .modal-overlay.show {
         display: flex;
@@ -244,7 +261,38 @@
         border-bottom-color: #ff7849;
         border-radius: 10px;
       }
+      #exportModal .modal-header {
+        background-color: #ff4500;
+        color: #fff;
+        padding: 12px 16px;
+        border-bottom-color: #ff7849;
+        border-radius: 10px;
+      }
+      #docTypeModal .modal-header {
+        background-color: #ff4500;
+        color: #fff;
+        padding: 12px 16px;
+        border-bottom-color: #ff7849;
+        border-radius: 10px;
+      }
+      #syncModal .modal-header {
+        background-color: #ff4500;
+        color: #fff;
+        padding: 12px 16px;
+        border-bottom-color: #ff7849;
+        border-radius: 10px;
+      }
+      #motivoModal .modal-header {
+        background-color: #ff4500;
+        color: #fff;
+        padding: 12px 16px;
+        border-bottom-color: #ff7849;
+        border-radius: 10px;
+      }
       #prepareModal .modal-header .modal-title {
+        color: #fff;
+      }
+      #exportModal .modal-header .modal-title {
         color: #fff;
       }
 
@@ -284,6 +332,45 @@
         background-color: #fff;
         border-radius: 6px;
         padding: 6px 10px;
+      }
+      #exportModal .close-btn {
+        border: 2px solid #dc3545;
+        color: #dc3545;
+        background-color: #fff;
+        border-radius: 6px;
+        padding: 0;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+      }
+      #docTypeModal .close-btn {
+        border: 2px solid #dc3545;
+        color: #dc3545;
+        background-color: #fff;
+        border-radius: 6px;
+        padding: 0;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+      }
+      #syncModal .close-btn {
+        border: 2px solid #dc3545;
+        color: #dc3545;
+        background-color: #fff;
+        border-radius: 6px;
+        padding: 0;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
       }
       #workshopModal .modal-header {
         background-color: #ff4500;
@@ -335,6 +422,18 @@
       }
 
       #prepareModal .close-btn:hover {
+        background-color: #ffe5e8;
+        color: #b02a37;
+      }
+      #exportModal .close-btn:hover {
+        background-color: #ffe5e8;
+        color: #b02a37;
+      }
+      #docTypeModal .close-btn:hover {
+        background-color: #ffe5e8;
+        color: #b02a37;
+      }
+      #syncModal .close-btn:hover {
         background-color: #ffe5e8;
         color: #b02a37;
       }
@@ -577,6 +676,13 @@
         justify-content: center;
         cursor: pointer;
       }
+      .gear-btn {
+        background-color: #8BC34A;
+        color: #fff;
+      }
+      .gear-btn:hover {
+        background-color: #7CB342;
+      }
       .icon-btn .lucide {
         width: 16px;
         height: 16px;
@@ -606,6 +712,19 @@
         color: #fff;
       }
       .icon-btn.add:hover { background-color: #c82333; }
+      .icon-btn.add:disabled {
+        background-color: #adb5bd;
+        color: #fff;
+        cursor: not-allowed;
+      }
+      .icon-btn.add:disabled:hover { background-color: #adb5bd; }
+      .icon-btn.download {
+        background-color: #28a745;
+        color: #fff;
+      }
+      .icon-btn.download:hover {
+        background-color: #218838;
+      }
       #workshopModal.minimized {
         background-color: transparent;
         pointer-events: none;
@@ -653,6 +772,22 @@
         color: #ff4500;
         font-weight: bold;
       }
+      .correrias-total-banner {
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1100;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 18px;
+        border-radius: 12px;
+        background: transparent;
+        color: #007bff;
+        font-weight: bold;
+        font-size: 18px;
+      }
       .workshop-btn {
         padding: 8px 12px;
         border: none;
@@ -688,6 +823,34 @@
         align-items: center;
         justify-content: space-between;
         padding: 8px 12px;
+      }
+      .actions-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px 12px;
+      }
+      .action-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 8px 12px;
+      }
+      .action-label {
+        font-weight: 600;
+        color: #333;
+      }
+      #docTypeModal #docTypeFileName {
+        background-color: #28a745;
+        color: #fff;
+        border-radius: 6px;
+        padding: 8px 12px;
+      }
+      #docTypeModal .action-row {
+        background-color: #C5E1A5;
+        border-color: transparent;
       }
 
       .graph-btn {
@@ -761,6 +924,15 @@
         padding: 10px;
         border: 1px solid #eee;
         text-align: left;
+      }
+      .color-swatch {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        vertical-align: middle;
+        margin-right: 8px;
       }
 
       .summary-color-input {
@@ -1020,4 +1192,32 @@
         align-items: center;
         gap: 8px;
         font-size: 14px;
+      }
+      .table-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        justify-content: flex-end;
+      }
+      .table-toolbar .graph-btn {
+        background-color: #28a745;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 14px;
+        min-height: 34px;
+        width: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+      }
+      .table-toolbar .graph-btn:hover {
+        filter: brightness(1.08);
+      }
+      .table-toolbar .graph-btn .lucide {
+        width: 18px;
+        height: 18px;
       }
