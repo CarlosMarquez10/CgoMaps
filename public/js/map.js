@@ -1423,7 +1423,7 @@ function saveCorreria(idx) {
         ) {
           correriaAssign.active = false;
           hideCorreriaBanner();
-          setProjectPopupsEnabled(true);
+          disableContextFeatures();
         }
       } else {
         Swal.fire("Error", "No se pudo actualizar Tpl", "error");
@@ -1847,6 +1847,29 @@ function setProjectPopupsEnabled(enabled) {
   }
 }
 
+function disableContextFeatures() {
+  try {
+    const toggleCb = document.getElementById("togglePopupsCheckbox");
+    const lassoCb = document.getElementById("toggleLassoCheckbox");
+    const unassignCb = document.getElementById("toggleUnassignCheckbox");
+    const motivoCb = document.getElementById("toggleMotivoModalCheckbox");
+    if (lassoCb) {
+      lassoCb.checked = false;
+      enableLassoMode(false);
+    }
+    if (unassignCb) {
+      unassignCb.checked = false;
+      unassignMode = false;
+    }
+    if (motivoCb) {
+      motivoCb.checked = false;
+      closeMotivoModal();
+    }
+    setProjectPopupsEnabled(false);
+    if (toggleCb) toggleCb.checked = false;
+  } catch (e) {}
+}
+
 function initContextMenu() {
   const menu = document.getElementById("contextMenu");
   const toggleCb = document.getElementById("togglePopupsCheckbox");
@@ -2009,11 +2032,27 @@ function enableLassoMode(enable) {
 function lassoStart(e) {
   if (!lassoMode) return;
   if (!correriaAssign.active) {
-    Swal.fire(
-      "Asignación requerida",
-      "Active la correría para usar la selección por lazo",
-      "info"
-    );
+    const table = document.getElementById("correriaTable");
+    let shouldWarn = false;
+    if (table) {
+      const rows = Array.from(table.querySelectorAll("tbody tr"));
+      for (let i = 0; i < rows.length; i++) {
+        const addBtn = rows[i].children[6]?.querySelector("button.icon-btn.add");
+        const hasAdd = !!(addBtn && !addBtn.disabled);
+        const cnt = (correrias[i] && typeof correrias[i].count === "number") ? correrias[i].count : 0;
+        if (hasAdd && cnt === 0) {
+          shouldWarn = true;
+          break;
+        }
+      }
+    }
+    if (shouldWarn) {
+      Swal.fire(
+        "Asignación requerida",
+        "Active la correría para usar la selección por lazo",
+        "info"
+      );
+    }
     return;
   }
   lassoActive = true;
