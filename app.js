@@ -287,6 +287,33 @@ app.get('/projects/:filename/correrias', (req, res) => {
   }
 })
 
+app.get('/projects/:filename/pending-programming-count', (req, res) => {
+  try {
+    const raw = req.params.filename
+    const safe = path.basename(raw)
+    const fullPath = path.join(dataDir, safe)
+    if (!safe.endsWith('.xlsx') && !safe.endsWith('.xls')) {
+      return res.status(400).json({ error: 'Nombre de archivo inválido' })
+    }
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ error: 'Archivo no encontrado' })
+    }
+    const workbook = xlsx.readFile(fullPath, { cellDates: true })
+    const sheetName = workbook.SheetNames[0]
+    const sheet = workbook.Sheets[sheetName]
+    const rows = xlsx.utils.sheet_to_json(sheet)
+    let pending = 0
+    rows.forEach(r => {
+      const v = r.EstadoOts !== undefined && r.EstadoOts !== null ? String(r.EstadoOts).trim() : ''
+      if (!v) pending++
+    })
+    res.json({ pending })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Error al contar pendientes' })
+  }
+})
+
 // Resumen por Motivo con conteo y color de "Color Tarea"
 app.get('/projects/:filename/motivo-summary', (req, res) => {
   try {
