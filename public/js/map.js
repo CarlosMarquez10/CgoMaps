@@ -979,6 +979,7 @@ function hasUnsavedCorreriaChanges() {
 }
 
 let correrias = [];
+let correriasDrafts = [];
 
 function ensureCorreriaTableHeader() {
   const table = document.getElementById("correriaTable");
@@ -1019,6 +1020,9 @@ function addCorreriaRow(name) {
   const tbody = table.querySelector("tbody");
   const idx = correrias.length;
   correrias.push({ name, count: 0, terminal: "" });
+  if (!correriasDrafts.some((d) => String(d.name || "").trim().toUpperCase() === String(name).trim().toUpperCase())) {
+    correriasDrafts.push({ name, count: 0, terminal: "" });
+  }
   const tr = document.createElement("tr");
   const tdName = document.createElement("td");
   tdName.textContent = name;
@@ -1029,6 +1033,12 @@ function addCorreriaRow(name) {
   terminalInput.type = "text";
   terminalInput.className = "select-input terminal-input";
   terminalInput.value = "";
+  terminalInput.addEventListener("input", (e) => {
+    const d = correriasDrafts.find(
+      (x) => String(x.name || "").trim().toUpperCase() === String(name).trim().toUpperCase()
+    );
+    if (d) d.terminal = (e.target.value || "").trim();
+  });
   tdTerminal.appendChild(terminalInput);
   const tdEdit = document.createElement("td");
   const editBtn = document.createElement("button");
@@ -1167,6 +1177,76 @@ function renderCorreriasFromProject(list) {
     if ((item.estadoCorreria || "").toLowerCase() === "guardado") {
       addBtn.disabled = true;
     }
+    tdAdd.appendChild(addBtn);
+    tr.appendChild(tdName);
+    tr.appendChild(tdCount);
+    tr.appendChild(tdTerminal);
+    tr.appendChild(tdEdit);
+    tr.appendChild(tdSave);
+    tr.appendChild(tdSel);
+    tr.appendChild(tdAdd);
+    tbody.appendChild(tr);
+  });
+  const serverNames = new Set(
+    (list || []).map((it) => String(it.description || "").trim().toUpperCase())
+  );
+  (correriasDrafts || []).forEach((d) => {
+    const nm = String(d.name || "").trim();
+    if (!nm) return;
+    const key = nm.toUpperCase();
+    if (serverNames.has(key)) return;
+    const idx = correrias.length;
+    correrias.push({ name: nm, count: d.count || 0, terminal: d.terminal || "", estadoCorreria: "" });
+    const tr = document.createElement("tr");
+    const tdName = document.createElement("td");
+    tdName.textContent = nm;
+    const tdCount = document.createElement("td");
+    tdCount.textContent = String(d.count || 0);
+    const tdTerminal = document.createElement("td");
+    const terminalInput = document.createElement("input");
+    terminalInput.type = "text";
+    terminalInput.className = "select-input terminal-input";
+    terminalInput.value = d.terminal || "";
+    terminalInput.disabled = false;
+    terminalInput.addEventListener("input", (e) => {
+      const dd = correriasDrafts.find(
+        (x) => String(x.name || "").trim().toUpperCase() === key
+      );
+      if (dd) dd.terminal = (e.target.value || "").trim();
+    });
+    tdTerminal.appendChild(terminalInput);
+    const tdEdit = document.createElement("td");
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "icon-btn edit";
+    const editIcon = document.createElement("i");
+    editIcon.setAttribute("data-lucide", "pencil");
+    editBtn.appendChild(editIcon);
+    editBtn.addEventListener("click", () => editCorreria(idx));
+    tdEdit.appendChild(editBtn);
+    const tdSave = document.createElement("td");
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "icon-btn save";
+    const saveIcon = document.createElement("i");
+    saveIcon.setAttribute("data-lucide", "save");
+    saveBtn.appendChild(saveIcon);
+    saveBtn.addEventListener("click", () => saveCorreria(idx));
+    tdSave.appendChild(saveBtn);
+    const tdSel = document.createElement("td");
+    const selCb = document.createElement("input");
+    selCb.type = "checkbox";
+    selCb.className = "correria-select";
+    selCb.dataset.desc = nm;
+    tdSel.appendChild(selCb);
+    const tdAdd = document.createElement("td");
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "icon-btn add";
+    const addIcon = document.createElement("i");
+    addIcon.setAttribute("data-lucide", "plus");
+    addBtn.appendChild(addIcon);
+    addBtn.addEventListener("click", () => startCorreriaAssignment(idx));
     tdAdd.appendChild(addBtn);
     tr.appendChild(tdName);
     tr.appendChild(tdCount);
@@ -1331,6 +1411,11 @@ function saveCorreria(idx) {
         if (addBtn) {
           addBtn.disabled = true;
         }
+        correriasDrafts = (correriasDrafts || []).filter(
+          (d) =>
+            String(d.name || "").trim().toUpperCase() !==
+            String(name || "").trim().toUpperCase()
+        );
         if (
           correriaAssign &&
           correriaAssign.active &&
